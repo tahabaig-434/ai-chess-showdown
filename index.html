@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chess Showdown: Public Edition</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #1e1e24; 
+            color: #fff; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 20px;
+            margin: 0; 
+        }
+        h1 { margin-bottom: 5px; color: #f5f5f6; }
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .config-panel {
+            background: #2a2a35;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            width: 350px;
+        }
+        .game-panel {
+            background: #2a2a35;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #board { width: 450px; border-radius: 4px; overflow: hidden; margin-bottom: 20px; }
+        
+        .config-section { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #3f3f4e; }
+        .config-section:last-child { border-bottom: none; }
+        .config-title { font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .white-dot { width: 12px; height: 12px; background: #fff; border-radius: 50%; }
+        .black-dot { width: 12px; height: 12px; background: #000; border-radius: 50%; border: 1px solid #fff; }
+        
+        label { display: block; font-size: 13px; color: #aaa; margin-bottom: 4px; }
+        select, input {
+            width: 100%;
+            padding: 8px;
+            background: #18181c;
+            border: 1px solid #3f3f4e;
+            color: #fff;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        .api-link { font-size: 11px; color: #4f46e5; text-decoration: none; display: block; margin-top: -5px; margin-bottom: 10px; }
+        .api-link:hover { text-decoration: underline; }
+
+        .controls { display: flex; flex-direction: column; gap: 10px; width: 450px; }
+        button { 
+            background: #4f46e5; 
+            border: none; 
+            color: white; 
+            padding: 12px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            transition: background 0.2s; 
+        }
+        button:hover { background: #4338ca; }
+        button:disabled { background: #4b5563; cursor: not-allowed; }
+        button.reset { background: #ef4444; }
+        button.reset:hover { background: #dc2626; }
+        
+        .status-box { 
+            background: #18181c; 
+            padding: 15px; 
+            border-radius: 6px; 
+            border-left: 4px solid #4f46e5; 
+            margin-bottom: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .thought-box {
+            background: #23232b;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #10a37f;
+            font-style: italic;
+            font-size: 14px;
+            color: #d1d1d1;
+            min-height: 40px;
+            margin-bottom: 15px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .error-box {
+            background: #450a0a;
+            color: #fecaca;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 10px;
+            display: none;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .log-container {
+            background: #111;
+            padding: 10px;
+            border-radius: 4px;
+            height: 120px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            color: #0f0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        @media (max-width: 900px) {
+            #board, .controls { width: 350px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🤖 AI Chess Showdown 🤖</h1>
+    <p style="color: #aaa; margin-bottom: 20px;">Bring your own API keys and watch the AIs battle!</p>
+
+    <div class="main-layout">
+        <!-- Configuration Panel -->
+        <div class="config-panel">
+            <h3 style="margin-top: 0;">Match Configuration</h3>
+            
+            <!-- White Config -->
+            <div class="config-section">
+                <div class="config-title"><div class="white-dot"></div> White Side</div>
+                <label>AI Provider</label>
+                <select id="white-provider">
+                    <option value="gemini">Google Gemini</option>
+                    <option value="groq">Groq (Llama/Mixtral)</option>
+                </select>
+                
+                <label>Model</label>
+                <select id="white-model"></select>
+                
+                <label>API Key</label>
+                <input type="password" id="white-api-key" placeholder="Enter API Key">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="api-link" id="white-api-link">Get Gemini API Key →</a>
+            </div>
+
+            <!-- Black Config -->
+            <div class="config-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div class="config-title" style="margin-bottom: 0;"><div class="black-dot"></div> Black Side</div>
+                    <button id="copy-white-btn" style="padding: 4px 8px; font-size: 11px; background: #3f3f4e;">Copy White Settings</button>
+                </div>
+                <label>AI Provider</label>
+                <select id="black-provider">
+                    <option value="gemini">Google Gemini</option>
+                    <option value="groq">Groq (Llama/Mixtral)</option>
+                </select>
+                
+                <label>Model</label>
+                <select id="black-model"></select>
+                
+                <label>API Key</label>
+                <input type="password" id="black-api-key" placeholder="Enter API Key">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="api-link" id="black-api-link">Get Gemini API Key →</a>
+            </div>
+            
+            <p style="font-size: 11px; color: #777;">Note: Keys are stored in your browser's local storage.</p>
+        </div>
+
+        <!-- Game Panel -->
+        <div class="game-panel">
+            <div id="board"></div>
+            <div class="controls">
+                <div id="error-display" class="error-box"></div>
+                <div class="status-box">
+                    <div>Status: <span id="game-status">Ready</span></div>
+                    <div id="turn-indicator">Configure and click "Start Match"</div>
+                </div>
+                <div id="ai-thought" class="thought-box" style="display: none;">
+                    <b>AI Thought:</b> <span id="thought-text">Thinking...</span>
+                </div>
+                <button id="step-btn">Make Single Move</button>
+                <button id="auto-btn">Start Auto Match</button>
+                <button id="reset-btn" class="reset">Reset Board</button>
+                <div class="log-container" id="move-log"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <script>
+        // SMART API URL: Detects if running locally or on a hosted server
+        const API_URL = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
+            ? "http://127.0.0.1:8000/api"
+            : "https://your-chess-backend.onrender.com/api"; // REPLACE THIS with your Render/Railway URL later
+
+        const MODELS = {
+            gemini: [
+                { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (Fastest)" },
+                { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Smarter)" }
+            ],
+            groq: [
+                { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B (Powerful)" },
+                { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B" },
+                { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B (Instant)" }
+            ]
+        };
+
+        const LINKS = {
+            gemini: "https://aistudio.google.com/app/apikey",
+            groq: "https://console.groq.com/keys"
+        };
+
+        let board = Chessboard('board', {
+            position: 'start',
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+        });
+        let autoPlayInterval = null;
+        let isThinking = false;
+
+        function updateModelDropdowns() {
+            ['white', 'black'].forEach(side => {
+                const provider = $(`#${side}-provider`).val();
+                const modelSelect = $(`#${side}-model`);
+                modelSelect.empty();
+                MODELS[provider].forEach(m => {
+                    modelSelect.append(`<option value="${m.id}">${m.name}</option>`);
+                });
+                $(`#${side}-api-link`).attr('href', LINKS[provider]).text(`Get ${provider.charAt(0).toUpperCase() + provider.slice(1)} API Key →`);
+                
+                // Load from storage if available
+                const savedModel = localStorage.getItem(`${side}-model-${provider}`);
+                if (savedModel) modelSelect.val(savedModel);
+            });
+        }
+
+        // Event listeners for provider changes
+        $('#white-provider, #black-provider').change(updateModelDropdowns);
+
+        // Save to local storage on change
+        $('select, input').change(function() {
+            const id = $(this).attr('id');
+            const val = $(this).val();
+            localStorage.setItem(id, val);
+            if (id.includes('model')) {
+                const side = id.split('-')[0];
+                const provider = $(`#${side}-provider`).val();
+                localStorage.setItem(`${side}-model-${provider}`, val);
+            }
+        });
+
+        // Load all from local storage
+        function loadSettings() {
+            ['white', 'black'].forEach(side => {
+                const provider = localStorage.getItem(`${side}-provider`);
+                if (provider) $(`#${side}-provider`).val(provider);
+                
+                updateModelDropdowns(); // Populate models based on provider
+                
+                const model = localStorage.getItem(`${side}-model`);
+                if (model) $(`#${side}-model`).val(model);
+                
+                const key = localStorage.getItem(`${side}-api-key`);
+                if (key) $(`#${side}-api-key`).val(key);
+            });
+        }
+
+        function log(message) {
+            const logEl = $('#move-log');
+            logEl.append(`<div>${message}</div>`);
+            logEl.scrollTop(logEl[0].scrollHeight);
+        }
+
+        function updateUI(data) {
+            board.position(data.fen);
+            if (data.last_move) {
+                log(`Move: ${data.last_move}`);
+            }
+
+            if (data.thought) {
+                $('#ai-thought').show();
+                $('#thought-text').text(data.thought);
+            }
+
+            if (data.error) {
+                $('#error-display').text("API Error: " + data.error).show();
+                log(`[Error] ${data.error}`);
+            } else {
+                $('#error-display').hide();
+            }
+
+            if (data.is_game_over) {
+                $('#game-status').text("Game Over");
+                $('#turn-indicator').html(`Result: <b>${data.result}</b>`);
+                log(`[System] Game Over. Result: ${data.result}`);
+                stopAutoMatch();
+                return;
+            }
+            
+            const parts = data.fen.split(' ');
+            const activeTurn = parts[1] === 'w' ? 'white' : 'black';
+            $('#game-status').text(activeTurn === 'white' ? "White's Turn" : "Black's Turn");
+            
+            const provider = $(`#${activeTurn}-provider option:selected`).text();
+            $('#turn-indicator').html(`Next: <b>${provider}</b> (${activeTurn})`);
+        }
+
+        async function triggerNextMove() {
+            if (isThinking) return;
+            
+            const whiteKey = $('#white-api-key').val();
+            const blackKey = $('#black-api-key').val();
+            
+            if (!whiteKey || !blackKey) {
+                alert("Please enter API keys for both White and Black sides.");
+                stopAutoMatch();
+                return;
+            }
+
+            isThinking = true;
+            $('#step-btn').prop('disabled', true);
+            log(`[System] AI is thinking...`);
+
+            const payload = {
+                white: {
+                    provider: $('#white-provider').val(),
+                    model: $('#white-model').val(),
+                    api_key: whiteKey
+                },
+                black: {
+                    provider: $('#black-provider').val(),
+                    model: $('#black-model').val(),
+                    api_key: blackKey
+                }
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/step`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                updateUI(data);
+            } catch (err) {
+                log("[Error] Could not connect to backend.");
+                stopAutoMatch();
+            } finally {
+                isThinking = false;
+                $('#step-btn').prop('disabled', false);
+            }
+        }
+
+        function stopAutoMatch() {
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                $('#auto-btn').text("Start Auto Match");
+            }
+        }
+
+        $('#step-btn').click(triggerNextMove);
+
+        $('#auto-btn').click(function() {
+            if (autoPlayInterval) {
+                stopAutoMatch();
+            } else {
+                $(this).text("Pause Match");
+                triggerNextMove();
+                autoPlayInterval = setInterval(triggerNextMove, 6000); 
+            }
+        });
+
+        $('#reset-btn').click(async function() {
+            stopAutoMatch();
+            try {
+                await fetch(`${API_URL}/reset`, { method: 'POST' });
+                board.start();
+                $('#game-status').text("Ready");
+                $('#move-log').empty();
+                log("[System] Board Reset.");
+            } catch (err) {}
+        });
+
+        // Initialize
+        loadSettings();
+        log("[System] Ready.");
+
+        $('#copy-white-btn').click(function() {
+            const provider = $('#white-provider').val();
+            const model = $('#white-model').val();
+            const key = $('#white-api-key').val();
+
+            $('#black-provider').val(provider).trigger('change');
+            $('#black-model').val(model).trigger('change');
+            $('#black-api-key').val(key).trigger('change');
+            
+            log("[System] Settings mirrored from White to Black.");
+        });
+        
+        async function syncState() {
+            try {
+                const response = await fetch(`${API_URL}/state`);
+                const data = await response.json();
+                updateUI(data);
+            } catch (e) {}
+        }
+        syncState();
+    </script>
+</body>
+</html>
